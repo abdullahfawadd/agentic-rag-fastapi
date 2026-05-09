@@ -8,6 +8,7 @@ const logsBtn = document.querySelector("#logsBtn");
 const apiStatus = document.querySelector("#apiStatus");
 const vectorCount = document.querySelector("#vectorCount");
 const namespaceName = document.querySelector("#namespaceName");
+const welcomePanel = document.querySelector("#welcomePanel");
 
 const state = {
   busy: false,
@@ -36,6 +37,10 @@ function setBusy(isBusy) {
   state.busy = isBusy;
   sendBtn.disabled = isBusy;
   input.disabled = isBusy;
+}
+
+function clearWelcome() {
+  welcomePanel?.classList.add("is-hidden");
 }
 
 function addMessage(role, text, payload = {}) {
@@ -135,7 +140,7 @@ async function runHealth(showMessage = true) {
   try {
     const health = await fetchJson("/health");
     apiStatus.textContent = health.status === "ok" ? "Online" : "Check";
-    vectorCount.textContent = health.pinecone_vectors ?? 0;
+    vectorCount.textContent = `${health.pinecone_vectors ?? 0} vectors`;
     namespaceName.textContent = health.pinecone_namespace ?? "ai_agents_pdf";
     if (showMessage) {
       addMessage(
@@ -175,9 +180,11 @@ async function showLogs() {
   try {
     const payload = await fetchJson("/logs?limit=50");
     if (!payload.lines.length) {
+      clearWelcome();
       addMessage("assistant", "No tool calls have been logged yet. Run a few queries first.");
       return;
     }
+    clearWelcome();
     addMessage("assistant", `Recent tool log entries:\n${payload.lines.join("\n")}`);
   } catch (error) {
     addMessage("assistant", `Could not load logs: ${error.message}`);
@@ -186,6 +193,7 @@ async function showLogs() {
 
 async function askQuestion(question) {
   if (!question.trim() || state.busy) return;
+  clearWelcome();
   addMessage("user", question.trim());
   input.value = "";
   autoGrow();

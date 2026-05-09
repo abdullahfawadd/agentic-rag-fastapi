@@ -4,6 +4,8 @@ Production-style integrated submission for Lab 06: a FastAPI backend, Groq tool-
 
 Built for **M Abdullah Fawad**.
 
+![Agentic RAG Studio UI](docs/final-ui.png)
+
 ## Features
 
 - Four registered tools: `search_knowledge_base`, `search_web`, `calculate`, and `get_wikipedia_summary`.
