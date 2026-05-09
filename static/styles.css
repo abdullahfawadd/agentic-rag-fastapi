@@ -27,13 +27,14 @@
 
 html,
 body {
-  min-height: 100%;
+  height: 100%;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  overflow: hidden;
 }
 
 button,
@@ -55,17 +56,20 @@ textarea:disabled {
 .app-shell {
   display: grid;
   grid-template-columns: 304px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 22px;
-  min-height: 100vh;
+  height: 100vh;
   padding: 22px;
   border-right: 1px solid var(--line);
   background: var(--sidebar);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .identity-card,
@@ -244,7 +248,9 @@ textarea:disabled {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   background:
     linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0) 170px),
     var(--bg);
@@ -335,9 +341,11 @@ textarea:disabled {
   flex-direction: column;
   gap: 24px;
   height: 100%;
+  min-height: 0;
   max-width: 960px;
   margin: 0 auto;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 54px 32px 34px;
 }
 
@@ -603,12 +611,33 @@ textarea::placeholder {
 }
 
 @media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 
   .sidebar {
+    height: auto;
     min-height: auto;
+    overflow: visible;
+  }
+
+  .studio {
+    height: auto;
+    min-height: 72vh;
+    overflow: visible;
+  }
+
+  .messages {
+    height: auto;
+    min-height: 360px;
+    overflow: visible;
   }
 
   .tool-list {
