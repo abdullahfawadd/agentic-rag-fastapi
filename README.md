@@ -54,6 +54,7 @@ Open:
 
 Use the folders under `graded_tasks/` for screenshots and submission notes:
 
+- Full lab report template: [`graded_tasks/LAB_REPORT.md`](graded_tasks/LAB_REPORT.md)
 - `task_1_wikipedia_tool`: screenshot `/tools` and a Wikipedia query trace.
 - `task_2_tool_logging`: screenshot the logs panel or `tool_log.txt` after five queries.
 - `task_3_domain_kb_reflection`: screenshots of five domain questions and the research reflection.
