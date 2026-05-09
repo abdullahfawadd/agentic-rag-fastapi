@@ -3,109 +3,151 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agentic RAG Lab 06 | M Abdullah Fawad</title>
+    <title>Agentic RAG Workbench | M Abdullah Fawad</title>
     <link rel="stylesheet" href="/static/styles.css" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
     <script src="/static/app.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
-      <aside class="side-panel" aria-label="Lab controls">
-        <div class="brand-block">
+      <aside class="command-rail" aria-label="Agent workspace controls">
+        <div class="brand-card">
           <div class="brand-mark">AF</div>
-          <div>
-            <p class="eyebrow">Agentic RAG Lab 06</p>
-            <h1>M Abdullah Fawad</h1>
+          <div class="brand-copy">
+            <span>Agentic RAG</span>
+            <strong>M Abdullah Fawad</strong>
           </div>
         </div>
 
-        <section class="status-panel" aria-label="System status">
-          <div class="status-row">
-            <span>API</span>
-            <strong id="apiStatus">Checking</strong>
-          </div>
-          <div class="status-row">
-            <span>Vectors</span>
-            <strong id="vectorCount">0</strong>
-          </div>
-          <div class="status-row">
-            <span>Namespace</span>
-            <strong id="namespaceName">ai_agents_pdf</strong>
+        <section class="rail-section">
+          <div class="section-label">System</div>
+          <div class="metric-stack" aria-label="System status">
+            <div class="metric-row">
+              <span class="metric-key">API</span>
+              <span class="metric-value status-good" id="apiStatus">Checking</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">Vectors</span>
+              <span class="metric-value" id="vectorCount">0</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-key">Namespace</span>
+              <span class="metric-value truncate" id="namespaceName">ai_agents_pdf</span>
+            </div>
           </div>
         </section>
 
-        <div class="action-grid">
-          <button class="icon-button" id="healthBtn" type="button" title="Run health check">
-            <i data-lucide="activity"></i>
-            <span>Health</span>
-          </button>
-          <button class="icon-button" id="ingestBtn" type="button" title="Ingest the domain PDF">
-            <i data-lucide="database"></i>
-            <span>Ingest</span>
-          </button>
-          <button class="icon-button" id="logsBtn" type="button" title="View recent tool logs">
-            <i data-lucide="scroll-text"></i>
-            <span>Logs</span>
-          </button>
-        </div>
-
-        <section class="prompt-panel" aria-label="Demo prompts">
-          <div class="section-heading">
-            <span>Demo Prompts</span>
+        <section class="rail-section">
+          <div class="section-label">Controls</div>
+          <div class="control-grid">
+            <button class="control-button" id="healthBtn" type="button" title="Health check">
+              <i data-lucide="activity"></i>
+              <span>Health</span>
+            </button>
+            <button class="control-button" id="ingestBtn" type="button" title="Ingest PDF">
+              <i data-lucide="database-zap"></i>
+              <span>Ingest</span>
+            </button>
+            <button class="control-button" id="logsBtn" type="button" title="Tool logs">
+              <i data-lucide="list-tree"></i>
+              <span>Logs</span>
+            </button>
           </div>
-          <button class="prompt-chip" data-prompt="Give me a Wikipedia summary of the Transformer architecture in NLP.">
-            Wikipedia summary
-          </button>
-          <button class="prompt-chip" data-prompt="What are the latest AI agent frameworks?">
-            Live web search
-          </button>
-          <button class="prompt-chip" data-prompt="What is 2 raised to the power of 16?">
-            Calculator
-          </button>
-          <button class="prompt-chip" data-prompt="Summarise the most important ideas about AI agents from the uploaded PDF.">
-            Domain KB with citations
-          </button>
-          <button class="prompt-chip" data-prompt="What does the PDF say about tool use, and how many days are in 5 years?">
-            Multi-tool trace
-          </button>
+        </section>
+
+        <section class="rail-section prompt-section">
+          <div class="section-label">Demo Prompts</div>
+          <div class="prompt-list">
+            <button class="prompt-card" data-prompt="Give me a Wikipedia summary of the Transformer architecture in NLP.">
+              <i data-lucide="library"></i>
+              <span>
+                <strong>Wikipedia</strong>
+                <small>Transformer architecture</small>
+              </span>
+            </button>
+            <button class="prompt-card" data-prompt="What are the latest AI agent frameworks?">
+              <i data-lucide="radar"></i>
+              <span>
+                <strong>Live Web</strong>
+                <small>Recent frameworks</small>
+              </span>
+            </button>
+            <button class="prompt-card" data-prompt="What is 2 raised to the power of 16?">
+              <i data-lucide="calculator"></i>
+              <span>
+                <strong>Calculator</strong>
+                <small>Exact computation</small>
+              </span>
+            </button>
+            <button class="prompt-card" data-prompt="What does the AI agents PDF say about tool design?">
+              <i data-lucide="file-search"></i>
+              <span>
+                <strong>Domain KB</strong>
+                <small>PDF citations</small>
+              </span>
+            </button>
+            <button class="prompt-card" data-prompt="What does the PDF say about tool use, and how many days are in 5 years?">
+              <i data-lucide="workflow"></i>
+              <span>
+                <strong>Multi-tool</strong>
+                <small>Trace sequence</small>
+              </span>
+            </button>
+          </div>
         </section>
       </aside>
 
-      <main class="chat-panel">
+      <main class="workbench">
         <header class="top-bar">
-          <div>
-            <p class="eyebrow">Groq + Pinecone + Tavily + Wikipedia</p>
-            <h2>Agentic RAG Console</h2>
+          <div class="title-group">
+            <span class="app-kicker">Groq · Pinecone · Tavily · Wikipedia</span>
+            <h1>Agentic RAG Workbench</h1>
           </div>
-          <a class="docs-link" href="/docs" target="_blank" rel="noreferrer">
-            <i data-lucide="book-open"></i>
-            <span>Swagger</span>
-          </a>
+          <div class="top-actions">
+            <span class="live-pill">
+              <span class="live-dot"></span>
+              Lab 06
+            </span>
+            <a class="docs-link" href="/docs" target="_blank" rel="noreferrer" title="Open Swagger docs">
+              <i data-lucide="book-open"></i>
+              <span>Swagger</span>
+            </a>
+          </div>
         </header>
 
-        <section class="messages" id="messages" aria-live="polite">
-          <article class="message assistant">
-            <div class="avatar">AI</div>
-            <div class="bubble">
-              <p>
-                Ask a question and I will decide whether to use the AI-agents knowledge base,
-                Tavily web search, Wikipedia, the calculator, or no tool.
-              </p>
-            </div>
-          </article>
+        <section class="chat-stage">
+          <div class="messages" id="messages" aria-live="polite">
+            <article class="message assistant">
+              <div class="avatar">AI</div>
+              <div class="bubble starter-bubble">
+                <div class="starter-header">
+                  <span class="starter-chip">Ready</span>
+                  <h2>Agent router is online.</h2>
+                </div>
+                <div class="tool-strip" aria-label="Available tools">
+                  <span><i data-lucide="file-search"></i> Knowledge base</span>
+                  <span><i data-lucide="radar"></i> Web</span>
+                  <span><i data-lucide="calculator"></i> Calculator</span>
+                  <span><i data-lucide="library"></i> Wikipedia</span>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
 
-        <form class="composer" id="chatForm">
-          <textarea
-            id="questionInput"
-            rows="1"
-            placeholder="Ask about the AI agents PDF, Wikipedia, live web facts, or calculations..."
-            autocomplete="off"
-          ></textarea>
-          <button class="send-button" id="sendBtn" type="submit" title="Send message">
-            <i data-lucide="send-horizontal"></i>
-          </button>
-        </form>
+        <footer class="composer-shell">
+          <form class="composer" id="chatForm">
+            <textarea
+              id="questionInput"
+              rows="1"
+              placeholder="Ask about the AI agents PDF, Wikipedia, live web facts, or calculations..."
+              autocomplete="off"
+            ></textarea>
+            <button class="send-button" id="sendBtn" type="submit" title="Send message">
+              <i data-lucide="send-horizontal"></i>
+            </button>
+          </form>
+        </footer>
       </main>
     </div>
   </body>
