@@ -7,3 +7,4 @@ groq>=0.11.0
 pinecone>=5.0.0
 sentence-transformers>=3.0.0
 pypdf>=5.0.0
+pymupdf>=1.24.0

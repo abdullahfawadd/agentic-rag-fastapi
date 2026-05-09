@@ -6,6 +6,7 @@ import json
 import math
 import operator
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -220,6 +221,77 @@ def chunk_page_text(text: str, page_number: int, max_words: int = 420, overlap: 
         if start + max_words >= len(words):
             break
     return chunks
+
+
+def _extract_pages_with_pypdf(pdf_path: Path) -> list[dict[str, Any]]:
+    reader = PdfReader(str(pdf_path))
+    pages = []
+    for page_index, page in enumerate(reader.pages, start=1):
+        text = page.extract_text() or ""
+        if text.strip():
+            pages.append({"page": page_index, "text": text})
+    return pages
+
+
+def _extract_pages_with_pymupdf(pdf_path: Path) -> list[dict[str, Any]]:
+    try:
+        import fitz
+    except ImportError:
+        return []
+
+    pages = []
+    document = fitz.open(str(pdf_path))
+    try:
+        for page_index, page in enumerate(document, start=1):
+            text = page.get_text("text") or ""
+            if text.strip():
+                pages.append({"page": page_index, "text": text})
+    finally:
+        document.close()
+    return pages
+
+
+def _parse_sidecar_text(sidecar_path: Path) -> list[dict[str, Any]]:
+    raw_text = sidecar_path.read_text(encoding="utf-8")
+    matches = list(
+        re.finditer(
+            r"^===\s*Page\s+(\d+)\s*===\s*$",
+            raw_text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+    )
+    if not matches:
+        return [{"page": 1, "text": raw_text}] if raw_text.strip() else []
+
+    pages = []
+    for index, match in enumerate(matches):
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(raw_text)
+        text = raw_text[start:end].strip()
+        if text:
+            pages.append({"page": int(match.group(1)), "text": text})
+    return pages
+
+
+def extract_pdf_pages(pdf_path: Path) -> list[dict[str, Any]]:
+    pages = _extract_pages_with_pypdf(pdf_path)
+    if pages:
+        return pages
+
+    pages = _extract_pages_with_pymupdf(pdf_path)
+    if pages:
+        return pages
+
+    sidecar_candidates = [
+        pdf_path.with_suffix(".txt"),
+        pdf_path.with_name(f"{pdf_path.stem}_ocr.txt"),
+        pdf_path.with_name(f"{pdf_path.stem}_knowledge_base.txt"),
+    ]
+    for sidecar_path in sidecar_candidates:
+        if sidecar_path.exists():
+            return _parse_sidecar_text(sidecar_path)
+
+    return []
 
 
 def search_knowledge_base(query: str) -> str:
@@ -582,6 +654,145 @@ def execute_tool(tool_name: str, arguments: dict[str, Any]) -> str:
     return result
 
 
+def _extract_wikipedia_topic(question: str) -> str:
+    patterns = [
+        r"wikipedia\s+summary\s+(?:of|about|for)\s+(.+)",
+        r"summary\s+(?:of|about|for)\s+(.+)",
+        r"wikipedia\s+(?:article\s+)?(?:on|about|for)\s+(.+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, question, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip(" .?\"'")
+    return question.strip(" .?\"'")
+
+
+def _extract_math_expression(question: str) -> str:
+    lower = question.lower()
+
+    power_match = re.search(
+        r"(\d+(?:\.\d+)?)\s+(?:raised\s+to\s+the\s+power\s+of|to\s+the\s+power\s+of|power\s+of)\s+(\d+(?:\.\d+)?)",
+        lower,
+    )
+    if power_match:
+        return f"{power_match.group(1)} ** {power_match.group(2)}"
+
+    days_match = re.search(r"(\d+(?:\.\d+)?)\s+years?", lower)
+    if "day" in lower and days_match:
+        return f"{days_match.group(1)} * 365"
+
+    arithmetic = re.findall(r"[\d\s+\-*/().%^]+", question)
+    expression = max((item.strip() for item in arithmetic), key=len, default="")
+    return expression.replace("^", "**") if expression else question
+
+
+def _looks_like_math(question: str) -> bool:
+    lower = question.lower()
+    math_words = ["calculate", "raised", "power", "percent", "percentage", "days", "years", "sqrt"]
+    return any(word in lower for word in math_words) or bool(re.search(r"\d+\s*[\+\-\*/%^]\s*\d+", question))
+
+
+def _looks_like_current_web(question: str) -> bool:
+    lower = question.lower()
+    web_words = [
+        "latest",
+        "recent",
+        "current",
+        "today",
+        "news",
+        "released",
+        "2025",
+        "2026",
+        "most recent",
+    ]
+    return any(word in lower for word in web_words)
+
+
+def _looks_like_domain_kb(question: str) -> bool:
+    lower = question.lower()
+    kb_words = [
+        "pdf",
+        "uploaded",
+        "knowledge base",
+        "ai agent",
+        "ai agents",
+        "agentic",
+        "rag",
+        "react",
+        "tool design",
+        "tool calling",
+        "pinecone",
+        "vector",
+    ]
+    return any(word in lower for word in kb_words)
+
+
+def synthesize_answer_from_observations(question: str, observations: list[dict[str, str]]) -> str:
+    observation_text = "\n\n".join(
+        f"Tool: {item['tool']}\nObservation:\n{item['result']}" for item in observations
+    )
+    try:
+        completion = get_groq_client().chat.completions.create(
+            model=settings.llm_model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Answer the user clearly using only the supplied tool observations when they are present. Include PDF page citations when the observations contain page numbers.",
+                },
+                {
+                    "role": "user",
+                    "content": f"Question: {question}\n\nTool observations:\n{observation_text}",
+                },
+            ],
+            temperature=0.1,
+        )
+        return completion.choices[0].message.content or observation_text
+    except Exception:
+        return observation_text
+
+
+def direct_answer(question: str) -> str:
+    try:
+        completion = get_groq_client().chat.completions.create(
+            model=settings.llm_model_name,
+            messages=[
+                {"role": "system", "content": "Answer directly and concisely without using tools."},
+                {"role": "user", "content": question},
+            ],
+            temperature=0.1,
+        )
+        return completion.choices[0].message.content or "I could not produce an answer."
+    except Exception as exc:
+        return f"I could not produce a direct answer: {exc}"
+
+
+def run_recovery_agent(question: str) -> str:
+    observations: list[dict[str, str]] = []
+    lower = question.lower()
+
+    if "wikipedia" in lower:
+        result = execute_tool("get_wikipedia_summary", {"topic": _extract_wikipedia_topic(question)})
+        observations.append({"tool": "get_wikipedia_summary", "result": result})
+        return synthesize_answer_from_observations(question, observations)
+
+    if _looks_like_domain_kb(question):
+        result = execute_tool("search_knowledge_base", {"query": question})
+        observations.append({"tool": "search_knowledge_base", "result": result})
+
+    if _looks_like_current_web(question):
+        result = execute_tool("search_web", {"query": question})
+        observations.append({"tool": "search_web", "result": result})
+
+    if _looks_like_math(question):
+        result = execute_tool("calculate", {"expression": _extract_math_expression(question)})
+        observations.append({"tool": "calculate", "result": result})
+
+    if observations:
+        return synthesize_answer_from_observations(question, observations)
+
+    return direct_answer(question)
+
+
 def run_agent(question: str) -> str:
     client = get_groq_client()
     messages: list[dict[str, Any]] = [
@@ -591,13 +802,16 @@ def run_agent(question: str) -> str:
     tools = build_tool_schemas()
 
     for _ in range(settings.max_agent_iterations):
-        completion = client.chat.completions.create(
-            model=settings.llm_model_name,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            temperature=0.1,
-        )
+        try:
+            completion = client.chat.completions.create(
+                model=settings.llm_model_name,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+                temperature=0.1,
+            )
+        except Exception:
+            return run_recovery_agent(question)
         response_message = completion.choices[0].message
         tool_calls = response_message.tool_calls or []
 
@@ -693,18 +907,20 @@ def ingest_pdf() -> IngestResponse:
             raise HTTPException(status_code=404, detail=f"PDF not found at {settings.domain_pdf_path}")
 
     try:
-        reader = PdfReader(str(pdf_path))
+        extracted_pages = extract_pdf_pages(pdf_path)
         all_chunks: list[dict[str, Any]] = []
         pages_indexed = 0
-        for page_index, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
-            chunks = chunk_page_text(text, page_index)
+        for page_data in extracted_pages:
+            chunks = chunk_page_text(page_data["text"], int(page_data["page"]))
             if chunks:
                 pages_indexed += 1
                 all_chunks.extend(chunks)
 
         if not all_chunks:
-            raise HTTPException(status_code=422, detail="No extractable text was found in the PDF.")
+            raise HTTPException(
+                status_code=422,
+                detail="No extractable text was found in the PDF and no sidecar text cache exists.",
+            )
 
         index = get_pinecone_index()
         texts = [chunk["text"] for chunk in all_chunks]

@@ -9,6 +9,7 @@ Built for **M Abdullah Fawad**.
 - Four registered tools: `search_knowledge_base`, `search_web`, `calculate`, and `get_wikipedia_summary`.
 - `/query` returns the answer, ordered tools used, tool trace, and PDF citations.
 - `/ingest` chunks `data/ai_agents.pdf`, embeds it with `BAAI/bge-small-en-v1.5`, and upserts vectors to Pinecone namespace `ai_agents_pdf`.
+- Image-only PDFs are supported through an OCR/text sidecar fallback. This repo includes `data/ai_agents_ocr.txt` because the supplied `ai_agents.pdf` does not expose extractable text to Python PDF parsers.
 - `tool_log.txt` is generated at runtime with timestamped tool calls for graded Task 2.
 - Modern chat UI at `/` with health, ingest, logs, demo prompts, citations, and expandable tool traces.
 - Swagger/OpenAPI docs at `/docs`.
