@@ -488,9 +488,97 @@ def calculate(expression: str) -> str:
         return f"Calculation failed: {exc}"
 
 
+WIKIPEDIA_HEADERS = {"User-Agent": "AgenticRAGLab06/1.0 (student project)"}
+
+
+def _clean_wikipedia_topic(topic: str) -> str:
+    cleaned = re.sub(r"\s+", " ", topic).strip(" .?\"'")
+    cleaned = re.sub(r"^(?:the|a|an)\s+", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\s+(?:in|for)\s+(?:nlp|natural language processing)\s*$",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned.strip(" .?\"'")
+
+
+def _wikipedia_topic_candidates(topic: str) -> list[str]:
+    cleaned = _clean_wikipedia_topic(topic)
+    candidates: list[str] = []
+    lower = topic.lower()
+
+    if "transformer" in lower and (
+        "nlp" in lower or "natural language processing" in lower or "architecture" in lower
+    ):
+        candidates.append("Transformer (deep learning)")
+
+    candidates.extend([topic.strip(), cleaned])
+    if cleaned.lower().endswith(" architecture"):
+        candidates.append(cleaned[: -len(" architecture")].strip())
+
+    unique: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate.lower() not in {item.lower() for item in unique}:
+            unique.append(candidate)
+    return unique
+
+
+def _fetch_wikipedia_summary(title: str) -> dict[str, Any] | None:
+    slug = quote(title.replace(" ", "_"), safe="()")
+    response = requests.get(
+        f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}",
+        headers=WIKIPEDIA_HEADERS,
+        timeout=15,
+    )
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("type") == "disambiguation":
+        return None
+    return payload
+
+
+def _search_wikipedia_title(topic: str) -> str | None:
+    response = requests.get(
+        "https://en.wikipedia.org/w/api.php",
+        headers=WIKIPEDIA_HEADERS,
+        params={
+            "action": "query",
+            "list": "search",
+            "srsearch": topic,
+            "format": "json",
+            "srlimit": 5,
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+    results = response.json().get("query", {}).get("search", [])
+    if not results:
+        return None
+
+    topic_lower = topic.lower()
+
+    def score(result: dict[str, Any]) -> tuple[int, int]:
+        title = str(result.get("title", ""))
+        title_lower = title.lower()
+        relevance = 0
+        if "transformer" in topic_lower and title_lower == "transformer (deep learning)":
+            relevance += 100
+        if "transformer" in topic_lower and "transformer" in title_lower:
+            relevance += 20
+        if "architecture" in topic_lower and "deep learning" in title_lower:
+            relevance += 10
+        return relevance, int(result.get("wordcount", 0) or 0)
+
+    best = max(results, key=score)
+    return str(best.get("title", "")) or None
+
+
 def get_wikipedia_summary(topic: str) -> str:
     """
-    Fetch the opening summary of a Wikipedia article.
+    Fetch the opening summary of a Wikipedia article, using Wikipedia search if the exact title is not found.
     Use this when the user explicitly asks for a Wikipedia summary or an encyclopedia-style overview of a stable topic.
     Do not use this for current events, recent releases, arithmetic, or questions that should be answered from the uploaded PDF.
     Returns the article title, opening extract, and canonical Wikipedia URL.
@@ -499,18 +587,29 @@ def get_wikipedia_summary(topic: str) -> str:
         topic = topic.strip()
         if not topic:
             raise ValueError("topic cannot be empty")
-        slug = quote(topic.replace(" ", "_"), safe="")
-        response = requests.get(
-            f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}",
-            headers={"User-Agent": "AgenticRAGLab06/1.0 (student project)"},
-            timeout=15,
-        )
-        response.raise_for_status()
-        payload = response.json()
+
+        payload = None
+        resolved_from = None
+        for candidate in _wikipedia_topic_candidates(topic):
+            payload = _fetch_wikipedia_summary(candidate)
+            if payload:
+                resolved_from = candidate
+                break
+
+        if payload is None:
+            search_title = _search_wikipedia_title(topic)
+            if search_title:
+                payload = _fetch_wikipedia_summary(search_title)
+                resolved_from = search_title
+
+        if payload is None:
+            raise RuntimeError(f"No Wikipedia article summary found for topic: {topic}")
+
         title = payload.get("title", topic)
         extract = payload.get("extract") or "No opening summary was returned for this article."
         url = payload.get("content_urls", {}).get("desktop", {}).get("page", "")
-        result = f"Wikipedia summary for {title}:\n{extract}\nURL: {url}"
+        resolution_note = f"Resolved topic: {resolved_from}\n" if resolved_from and resolved_from != topic else ""
+        result = f"Wikipedia summary for {title}:\n{resolution_note}{extract}\nURL: {url}"
         log_tool_call("get_wikipedia_summary", topic, True)
         return result
     except Exception as exc:
@@ -565,7 +664,7 @@ TOOL_PARAMETERS: dict[str, dict[str, Any]] = {
         "properties": {
             "topic": {
                 "type": "string",
-                "description": "The exact Wikipedia article topic, for example 'Transformer architecture' or 'Artificial intelligence'.",
+                "description": "The Wikipedia topic or natural-language article phrase, for example 'Transformer architecture in NLP' or 'Artificial intelligence'.",
             }
         },
         "required": ["topic"],

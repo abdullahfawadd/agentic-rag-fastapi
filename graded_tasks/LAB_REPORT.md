@@ -99,7 +99,8 @@ Give me a Wikipedia summary of the Transformer architecture in NLP.
 
 Expected result:
 - `tools_used` contains `get_wikipedia_summary`
-- Tool trace shows input topic similar to `Transformer architecture`
+- Tool trace shows input topic similar to `the Transformer architecture in NLP`
+- Tool output resolves the article to `Transformer (deep learning)`
 - Answer contains a Wikipedia-style summary
 
 **Screenshot Placeholder 6: Wikipedia Tool Trace**
